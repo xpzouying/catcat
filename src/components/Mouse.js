@@ -1,27 +1,127 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 
-const Mouse = ({ x, y, size = 25, isEscaping }) => {
+const Mouse = ({ x, y, size = 40, isEscaping, isHiding, behaviorState = 'exploring' }) => {
+  const [pulseIntensity, setPulseIntensity] = useState(1);
+  
+  // 根据行为状态设置视觉效果
+  useEffect(() => {
+    const interval = setInterval(() => {
+      switch(behaviorState) {
+        case 'hunting':
+          setPulseIntensity(1.1 + Math.random() * 0.2);
+          break;
+        case 'resting':
+          setPulseIntensity(0.9 + Math.random() * 0.1);
+          break;
+        case 'hiding':
+          setPulseIntensity(0.7);
+          break;
+        default:
+          setPulseIntensity(1 + Math.random() * 0.1);
+      }
+    }, 500 + Math.random() * 1000);
+
+    return () => clearInterval(interval);
+  }, [behaviorState]);
+
+  const getMouseColor = () => {
+    switch(behaviorState) {
+      case 'hunting':
+        return '#FF6B6B'; // 红色 - 活跃状态
+      case 'resting':
+        return '#4ECDC4'; // 青色 - 休息状态
+      case 'hiding':
+        return '#45B7D1'; // 深蓝 - 隐藏状态
+      default:
+        return '#4A90E2'; // 默认蓝色
+    }
+  };
+
   return (
-    <motion.div
-      className="absolute rounded-full"
-      style={{
-        width: size,
-        height: size,
-        backgroundColor: '#4A90E2',
-        boxShadow: '0 0 10px rgba(74, 144, 226, 0.5)',
-      }}
-      animate={{
-        x,
-        y,
-        scale: isEscaping ? 1.2 : 1,
-      }}
-      transition={{
-        x: { type: "spring", stiffness: isEscaping ? 500 : 100, damping: isEscaping ? 10 : 20 },
-        y: { type: "spring", stiffness: isEscaping ? 500 : 100, damping: isEscaping ? 10 : 20 },
-        scale: { type: "tween", duration: isEscaping ? 0.2 : 0.3, ease: "easeOut" },
-      }}
-    />
+    <>
+      {/* 主体 */}
+      <motion.div
+        className="absolute rounded-full"
+        style={{
+          width: size,
+          height: size,
+          backgroundColor: getMouseColor(),
+          boxShadow: `0 0 ${isEscaping ? 20 : 15}px ${getMouseColor()}80`,
+          opacity: isHiding ? 0.3 : 1,
+        }}
+        animate={{
+          x: x - size/2,
+          y: y - size/2,
+          scale: isEscaping ? 1.3 : pulseIntensity,
+        }}
+        transition={{
+          x: { type: "spring", stiffness: isEscaping ? 500 : 150, damping: isEscaping ? 10 : 25 },
+          y: { type: "spring", stiffness: isEscaping ? 500 : 150, damping: isEscaping ? 10 : 25 },
+          scale: { type: "tween", duration: isEscaping ? 0.15 : 0.8, ease: "easeOut" },
+          opacity: { duration: 0.3 },
+        }}
+      />
+      
+      {/* 尾迹效果 */}
+      {isEscaping && (
+        <motion.div
+          className="absolute rounded-full"
+          style={{
+            width: size * 0.7,
+            height: size * 0.7,
+            backgroundColor: getMouseColor(),
+            opacity: 0.4,
+          }}
+          animate={{
+            x: x - (size * 0.7)/2,
+            y: y - (size * 0.7)/2,
+            scale: [0.8, 1.2, 0.6],
+          }}
+          transition={{
+            x: { type: "spring", stiffness: 300, damping: 20, delay: 0.1 },
+            y: { type: "spring", stiffness: 300, damping: 20, delay: 0.1 },
+            scale: { duration: 0.4, times: [0, 0.5, 1] },
+          }}
+        />
+      )}
+      
+      {/* 眼睛效果 */}
+      {!isHiding && (
+        <>
+          <motion.div
+            className="absolute rounded-full bg-white"
+            style={{
+              width: size * 0.2,
+              height: size * 0.2,
+            }}
+            animate={{
+              x: x - size * 0.15,
+              y: y - size * 0.1,
+            }}
+            transition={{
+              x: { type: "spring", stiffness: isEscaping ? 500 : 150, damping: 25 },
+              y: { type: "spring", stiffness: isEscaping ? 500 : 150, damping: 25 },
+            }}
+          />
+          <motion.div
+            className="absolute rounded-full bg-white"
+            style={{
+              width: size * 0.2,
+              height: size * 0.2,
+            }}
+            animate={{
+              x: x + size * 0.05,
+              y: y - size * 0.1,
+            }}
+            transition={{
+              x: { type: "spring", stiffness: isEscaping ? 500 : 150, damping: 25 },
+              y: { type: "spring", stiffness: isEscaping ? 500 : 150, damping: 25 },
+            }}
+          />
+        </>
+      )}
+    </>
   );
 };
 
