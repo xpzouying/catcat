@@ -10,66 +10,135 @@ const GameArea = ({ speed, isFullscreen }) => {
   const velocityRef = useRef({ vx: 1, vy: 1 });
   const [mousePosition, setMousePosition] = useState({ x: 100, y: 100 });
   const [isEscaping, setIsEscaping] = useState(false);
-  const [isHiding, setIsHiding] = useState(false);
+  const [isHiding] = useState(false);
   const [touches, setTouches] = useState([]);
   const [captures, setCaptures] = useState([]);
   const escapeTimeoutRef = useRef();
-  const behaviorStateRef = useRef('exploring'); // exploring, hunting, resting, hiding
-  const lastDirectionChangeRef = useRef(0);
-  const pauseTimeRef = useRef(0);
+  const behaviorStateRef = useRef('stalking'); // stalking, dashing, observing, palm_trajectory, fake_move, escape_mode
+  // Removed unused refs
   const touchIdRef = useRef(0);
   const captureIdRef = useRef(0);
+  const movementPhaseRef = useRef('direct'); // direct, turning, pausing
+  const phaseStartTimeRef = useRef(0);
+  const escapeCountdownRef = useRef(Math.random() * 20000 + 10000); // 10-30秒后触发逃窜
 
-  const getRandomVelocity = useCallback(() => {
-    const angle = Math.random() * Math.PI * 2;
-    let baseSpeed = speed * 0.5;
+  const getSpeedByBehavior = useCallback((behavior) => {
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const rect = gameAreaRef.current?.getBoundingClientRect();
+    if (!rect) return speed * 0.5;
     
-    // 根据行为状态调整速度
-    switch(behaviorStateRef.current) {
-      case 'exploring':
-        baseSpeed *= (0.6 + Math.random() * 0.6); // 0.6-1.2倍速，更不规律
+    const screenWidthPerSecond = rect.width; // 1个屏幕宽/秒
+    let targetSpeed;
+    
+    switch(behavior) {
+      case 'stalking': // 潜行慢移
+        targetSpeed = (0.8 + Math.random() * 0.7) * screenWidthPerSecond / 60; // 0.8-1.5 屏幕宽/秒
         break;
-      case 'hunting':
-        baseSpeed *= (1.2 + Math.random() * 0.8); // 1.2-2.0倍速，突然爆发
+      case 'dashing': // 冲刺爆发
+        targetSpeed = (2.0 + Math.random() * 1.0) * screenWidthPerSecond / 60; // 2-3 屏幕宽/秒
         break;
-      case 'resting':
-        baseSpeed *= (0.1 + Math.random() * 0.4); // 0.1-0.5倍速，缓慢移动
+      case 'observing': // 观望停顿
+        targetSpeed = 0; // 静止
         break;
-      case 'hiding':
-        baseSpeed *= (0.05 + Math.random() * 0.15); // 0.05-0.2倍速，几乎静止
+      case 'escape_mode': // 逃窜模式
+        targetSpeed = (2.5 + Math.random() * 0.5) * screenWidthPerSecond / 60; // 2.5-3 屏幕宽/秒
         break;
       default:
+        targetSpeed = 1.0 * screenWidthPerSecond / 60; // 默认 1 屏幕宽/秒
         break;
     }
     
-    return {
-      vx: Math.cos(angle) * baseSpeed,
-      vy: Math.sin(angle) * baseSpeed
-    };
+    return targetSpeed * speed; // 乘以用户设置的速度系数
   }, [speed]);
-
-  const updateBehaviorState = useCallback(() => {
-    const now = Date.now();
-    const random = Math.random();
+  
+  const getRandomVelocity = useCallback((angle = null) => {
+    const finalAngle = angle !== null ? angle : Math.random() * Math.PI * 2;
+    const targetSpeed = getSpeedByBehavior(behaviorStateRef.current);
     
-    // 每3-8秒随机改变行为状态
-    if (now - lastDirectionChangeRef.current > (3000 + Math.random() * 5000)) {
-      lastDirectionChangeRef.current = now;
+    return {
+      vx: Math.cos(finalAngle) * targetSpeed,
+      vy: Math.sin(finalAngle) * targetSpeed
+    };
+  }, [speed, getSpeedByBehavior]);
+
+  const updateMovementPattern = useCallback(() => {
+    const now = Date.now();
+    const phaseElapsed = now - phaseStartTimeRef.current;
+    
+    // 棕榈轨迹模式：直行 → 急转 → 微停 循环
+    switch(movementPhaseRef.current) {
+      case 'direct': // 直行阶段 300-800ms
+        if (phaseElapsed > 300 + Math.random() * 500) {
+          movementPhaseRef.current = 'turning';
+          phaseStartTimeRef.current = now;
+          behaviorStateRef.current = 'dashing'; // 急转时突然加速
+          
+          // 急转 30-90度
+          const currentAngle = Math.atan2(velocityRef.current.vy, velocityRef.current.vx);
+          const turnAngle = (30 + Math.random() * 60) * (Math.PI / 180) * (Math.random() < 0.5 ? 1 : -1);
+          const newAngle = currentAngle + turnAngle;
+          velocityRef.current = getRandomVelocity(newAngle);
+        }
+        break;
+        
+      case 'turning': // 转向阶段，短暂
+        if (phaseElapsed > 100) {
+          movementPhaseRef.current = 'pausing';
+          phaseStartTimeRef.current = now;
+          behaviorStateRef.current = 'observing'; // 停顿观望
+        }
+        break;
+        
+      case 'pausing': // 微停阶段 150-300ms
+        if (phaseElapsed > 150 + Math.random() * 150) {
+          movementPhaseRef.current = 'direct';
+          phaseStartTimeRef.current = now;
+          behaviorStateRef.current = 'stalking'; // 回到潜行状态
+          velocityRef.current = getRandomVelocity(); // 新方向
+        }
+        break;
+    }
+    
+    // 假动作：5%概率触发
+    if (Math.random() < 0.05 && movementPhaseRef.current === 'direct') {
+      movementPhaseRef.current = 'fake_move';
+      phaseStartTimeRef.current = now;
       
-      if (random < 0.4) {
-        behaviorStateRef.current = 'exploring';
-      } else if (random < 0.6) {
-        behaviorStateRef.current = 'hunting';
-      } else if (random < 0.8) {
-        behaviorStateRef.current = 'resting';
-        pauseTimeRef.current = now;
-      } else {
-        behaviorStateRef.current = 'hiding';
-        setIsHiding(true);
-        setTimeout(() => setIsHiding(false), 1000 + Math.random() * 2000);
+      // 向前冲刺
+      velocityRef.current.vx *= 2;
+      velocityRef.current.vy *= 2;
+      
+      setTimeout(() => {
+        // 80-120ms后回拉
+        velocityRef.current.vx *= -1.5;
+        velocityRef.current.vy *= -1.5;
+        
+        setTimeout(() => {
+          // 再等200ms后恢复正常
+          movementPhaseRef.current = 'direct';
+          phaseStartTimeRef.current = Date.now();
+          behaviorStateRef.current = 'stalking';
+          velocityRef.current = getRandomVelocity();
+        }, 200);
+      }, 80 + Math.random() * 40);
+    }
+    
+    // 逃窜模式检查
+    if (now > escapeCountdownRef.current) {
+      behaviorStateRef.current = 'escape_mode';
+      escapeCountdownRef.current = now + 20000 + Math.random() * 20000; // 下一次逃窜 20-40秒后
+      
+      // 高速爆发向屏幕边缘
+      const rect = gameAreaRef.current?.getBoundingClientRect();
+      if (rect) {
+        const escapeAngle = Math.atan2(
+          rect.height / 2 - mousePositionRef.current.y,
+          rect.width / 2 - mousePositionRef.current.x
+        ) + Math.PI; // 背离中心
+        velocityRef.current = getRandomVelocity(escapeAngle);
       }
     }
-  }, []);
+  }, [getRandomVelocity]);
 
   const handleTouch = useCallback((e) => {
     e.preventDefault();
@@ -129,7 +198,7 @@ const GameArea = ({ speed, isFullscreen }) => {
       };
 
       setIsEscaping(true);
-      behaviorStateRef.current = 'hiding'; // 被抓到后进入隐藏状态
+      behaviorStateRef.current = 'escape_mode'; // 被抓到后进入逃窜状态
       
       if (escapeTimeoutRef.current) {
         clearTimeout(escapeTimeoutRef.current);
@@ -137,7 +206,9 @@ const GameArea = ({ speed, isFullscreen }) => {
       
       escapeTimeoutRef.current = setTimeout(() => {
         setIsEscaping(false);
-        behaviorStateRef.current = 'exploring';
+        behaviorStateRef.current = 'stalking';
+        movementPhaseRef.current = 'direct';
+        phaseStartTimeRef.current = Date.now();
         velocityRef.current = getRandomVelocity();
       }, 800);
     }
@@ -180,6 +251,8 @@ const GameArea = ({ speed, isFullscreen }) => {
 
   useEffect(() => {
     velocityRef.current = getRandomVelocity();
+    phaseStartTimeRef.current = Date.now();
+    movementPhaseRef.current = 'direct';
   }, [getRandomVelocity]);
 
   useEffect(() => {
@@ -191,12 +264,12 @@ const GameArea = ({ speed, isFullscreen }) => {
       const { vx, vy } = velocityRef.current;
       const now = Date.now();
 
-      // 更新行为状态
-      updateBehaviorState();
+      // 更新移动模式
+      updateMovementPattern();
 
-      // 处理休息状态的暂停
-      if (behaviorStateRef.current === 'resting' && now - pauseTimeRef.current < 2000) {
-        // 暂停移动2秒
+      // 处理观望状态的暂停
+      if (behaviorStateRef.current === 'observing') {
+        // 在观望状态下保持位置不变
         animationFrameRef.current = requestAnimationFrame(animate);
         return;
       }
@@ -205,66 +278,54 @@ const GameArea = ({ speed, isFullscreen }) => {
       let newY = y + vy;
 
       // 边界碰撞检测，增加更自然的反弹
-      if (newX <= 40 || newX >= rect.width - 40) {
-        velocityRef.current.vx = -vx * (0.8 + Math.random() * 0.4);
-        newX = Math.max(40, Math.min(rect.width - 40, newX));
-        // 边界碰撞时改变行为状态
-        behaviorStateRef.current = 'exploring';
-      }
-
-      if (newY <= 40 || newY >= rect.height - 40) {
-        velocityRef.current.vy = -vy * (0.8 + Math.random() * 0.4);
-        newY = Math.max(40, Math.min(rect.height - 40, newY));
-        // 边界碰撞时改变行为状态
-        behaviorStateRef.current = 'exploring';
-      }
-
-      // 更自然的方向改变逻辑
-      if (!isEscaping) {
-        // 根据行为状态调整方向改变频率 - 更激进的变化
-        let changeProb = 0.005;
-        switch(behaviorStateRef.current) {
-          case 'hunting':
-            changeProb = 0.04; // 狩猎时极频繁改变方向
-            break;
-          case 'exploring':
-            changeProb = 0.02; // 探索时更频繁变化
-            break;
-          case 'hiding':
-            changeProb = 0.001;
-            break;
-          default:
-            changeProb = 0.01;
-            break;
-        }
-
-        if (Math.random() < changeProb) {
+      // 处理逃窜模式的屏幕退出和重新进入
+      if (behaviorStateRef.current === 'escape_mode') {
+        // 逃窜模式允许暂时离开屏幕
+        if (newX < -100 || newX > rect.width + 100 || newY < -100 || newY > rect.height + 100) {
+          // 从相对的边重新进入
+          if (newX < -100) newX = rect.width + 50;
+          if (newX > rect.width + 100) newX = -50;
+          if (newY < -100) newY = rect.height + 50;
+          if (newY > rect.height + 100) newY = -50;
+          
+          // 重新进入后结束逃窜模式
+          behaviorStateRef.current = 'stalking';
+          movementPhaseRef.current = 'direct';
+          phaseStartTimeRef.current = now;
           velocityRef.current = getRandomVelocity();
         }
-
-        // 增加突然的急转弯概率
-        if (Math.random() < 0.015) {
-          const sharpTurnAngle = (Math.random() - 0.5) * Math.PI; // 大角度转弯
-          const currentSpeed = Math.sqrt(velocityRef.current.vx ** 2 + velocityRef.current.vy ** 2);
-          const currentAngle = Math.atan2(velocityRef.current.vy, velocityRef.current.vx);
-          const newAngle = currentAngle + sharpTurnAngle;
-          
-          velocityRef.current.vx = Math.cos(newAngle) * currentSpeed;
-          velocityRef.current.vy = Math.sin(newAngle) * currentSpeed;
+      } else {
+        // 正常边界反弹
+        if (newX <= 40 || newX >= rect.width - 40) {
+          velocityRef.current.vx = -vx * (0.8 + Math.random() * 0.4);
+          newX = Math.max(40, Math.min(rect.width - 40, newX));
+          // 边界碰撞时重置为潜行状态
+          behaviorStateRef.current = 'stalking';
+          movementPhaseRef.current = 'direct';
+          phaseStartTimeRef.current = now;
         }
 
-        // 增加微小的随机扰动频率和强度
-        if (Math.random() < 0.2) {
-          const perturbation = behaviorStateRef.current === 'hunting' ? 0.5 : 0.3;
-          velocityRef.current.vx += (Math.random() - 0.5) * perturbation;
-          velocityRef.current.vy += (Math.random() - 0.5) * perturbation;
+        if (newY <= 40 || newY >= rect.height - 40) {
+          velocityRef.current.vy = -vy * (0.8 + Math.random() * 0.4);
+          newY = Math.max(40, Math.min(rect.height - 40, newY));
+          // 边界碰撞时重置为潜行状态
+          behaviorStateRef.current = 'stalking';
+          movementPhaseRef.current = 'direct';
+          phaseStartTimeRef.current = now;
         }
+      }
 
-        // 添加短暂停顿后突然加速的行为
-        if (Math.random() < 0.008) {
-          const burstMultiplier = 1.5 + Math.random() * 1.5;
-          velocityRef.current.vx *= burstMultiplier;
-          velocityRef.current.vy *= burstMultiplier;
+      // 棕榈轨迹模式已在 updateMovementPattern 中实现，这里只做微调
+      if (!isEscaping && movementPhaseRef.current !== 'fake_move') {
+        // 根据当前速度调整到目标速度
+        const currentSpeed = Math.sqrt(velocityRef.current.vx ** 2 + velocityRef.current.vy ** 2);
+        const targetSpeed = getSpeedByBehavior(behaviorStateRef.current);
+        
+        if (Math.abs(currentSpeed - targetSpeed) > targetSpeed * 0.1) {
+          // 平滑调整到目标速度
+          const speedRatio = targetSpeed / (currentSpeed || 1);
+          velocityRef.current.vx *= speedRatio;
+          velocityRef.current.vy *= speedRatio;
         }
       }
 
@@ -281,16 +342,16 @@ const GameArea = ({ speed, isFullscreen }) => {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [speed, isEscaping, updateBehaviorState, getRandomVelocity]);
+  }, [speed, isEscaping, updateMovementPattern, getRandomVelocity, getSpeedByBehavior]);
 
   return (
     <div
       ref={gameAreaRef}
-      className="relative w-full h-full bg-gray-100 overflow-hidden cursor-pointer"
+      className="relative w-full h-full overflow-hidden cursor-pointer"
+      style={{ backgroundColor: '#101010', touchAction: 'none' }}
       onTouchStart={handleTouch}
       onTouchMove={handleTouch}
       onClick={handleClick}
-      style={{ touchAction: 'none' }}
     >
       <Mouse
         x={mousePosition.x}

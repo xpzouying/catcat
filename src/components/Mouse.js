@@ -26,16 +26,8 @@ const Mouse = ({ x, y, size = 40, isEscaping, isHiding, behaviorState = 'explori
   }, [behaviorState]);
 
   const getMouseColor = () => {
-    switch(behaviorState) {
-      case 'hunting':
-        return '#FFD700'; // 金黄色 - 活跃状态
-      case 'resting':
-        return '#FFA500'; // 橙黄色 - 休息状态
-      case 'hiding':
-        return '#FFFF00'; // 纯黄色 - 隐藏状态
-      default:
-        return '#FFD700'; // 默认金黄色
-    }
+    // 统一使用明黄色 #FFD24A，与深色背景形成强对比
+    return '#FFD24A';
   };
 
   return (
@@ -49,6 +41,7 @@ const Mouse = ({ x, y, size = 40, isEscaping, isHiding, behaviorState = 'explori
           backgroundColor: getMouseColor(),
           boxShadow: `0 0 ${isEscaping ? 20 : 15}px ${getMouseColor()}80`,
           opacity: isHiding ? 0.3 : 1,
+          border: '2px solid #ffffff', // 白色描边增强边缘
         }}
         animate={{
           x: x - size/2,
