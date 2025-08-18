@@ -14,12 +14,12 @@ const Mouse = ({ x, y, size = 25, isEscaping }) => {
       animate={{
         x,
         y,
-        scale: isEscaping ? [1, 1.2, 1] : 1,
+        scale: isEscaping ? 1.2 : 1,
       }}
       transition={{
-        type: "spring",
-        stiffness: isEscaping ? 500 : 100,
-        damping: isEscaping ? 10 : 20,
+        x: { type: "spring", stiffness: isEscaping ? 500 : 100, damping: isEscaping ? 10 : 20 },
+        y: { type: "spring", stiffness: isEscaping ? 500 : 100, damping: isEscaping ? 10 : 20 },
+        scale: { type: "tween", duration: isEscaping ? 0.2 : 0.3, ease: "easeOut" },
       }}
     />
   );
