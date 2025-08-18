@@ -32,19 +32,19 @@ const GameArea = ({ speed, isFullscreen }) => {
     
     switch(behavior) {
       case 'stalking': // 潜行慢移
-        targetSpeed = (0.8 + Math.random() * 0.7) * screenWidthPerSecond / 60; // 0.8-1.5 屏幕宽/秒
+        targetSpeed = (0.3 + Math.random() * 0.4) * screenWidthPerSecond / 60; // 0.3-0.7 屏幕宽/秒（更慢）
         break;
       case 'dashing': // 冲刺爆发
-        targetSpeed = (2.0 + Math.random() * 1.0) * screenWidthPerSecond / 60; // 2-3 屏幕宽/秒
+        targetSpeed = (1.0 + Math.random() * 0.8) * screenWidthPerSecond / 60; // 1-1.8 屏幕宽/秒（降低）
         break;
       case 'observing': // 观望停顿
         targetSpeed = 0; // 静止
         break;
       case 'escape_mode': // 逃窜模式
-        targetSpeed = (2.5 + Math.random() * 0.5) * screenWidthPerSecond / 60; // 2.5-3 屏幕宽/秒
+        targetSpeed = (1.8 + Math.random() * 0.7) * screenWidthPerSecond / 60; // 1.8-2.5 屏幕宽/秒（降低）
         break;
       default:
-        targetSpeed = 1.0 * screenWidthPerSecond / 60; // 默认 1 屏幕宽/秒
+        targetSpeed = 0.5 * screenWidthPerSecond / 60; // 默认 0.5 屏幕宽/秒（降低）
         break;
     }
     
@@ -67,8 +67,8 @@ const GameArea = ({ speed, isFullscreen }) => {
     
     // 棕榈轨迹模式：直行 → 急转 → 微停 循环
     switch(movementPhaseRef.current) {
-      case 'direct': // 直行阶段 300-800ms
-        if (phaseElapsed > 300 + Math.random() * 500) {
+      case 'direct': // 直行阶段 800-1500ms（延长）
+        if (phaseElapsed > 800 + Math.random() * 700) {
           movementPhaseRef.current = 'turning';
           phaseStartTimeRef.current = now;
           behaviorStateRef.current = 'dashing'; // 急转时突然加速
@@ -89,8 +89,8 @@ const GameArea = ({ speed, isFullscreen }) => {
         }
         break;
         
-      case 'pausing': // 微停阶段 150-300ms
-        if (phaseElapsed > 150 + Math.random() * 150) {
+      case 'pausing': // 微停阶段 400-800ms（延长）
+        if (phaseElapsed > 400 + Math.random() * 400) {
           movementPhaseRef.current = 'direct';
           phaseStartTimeRef.current = now;
           behaviorStateRef.current = 'stalking'; // 回到潜行状态
@@ -106,8 +106,8 @@ const GameArea = ({ speed, isFullscreen }) => {
         break;
     }
     
-    // 假动作：5%概率触发
-    if (Math.random() < 0.05 && movementPhaseRef.current === 'direct') {
+    // 假动作：2%概率触发（减少）
+    if (Math.random() < 0.02 && movementPhaseRef.current === 'direct') {
       movementPhaseRef.current = 'fake_move';
       phaseStartTimeRef.current = now;
       
@@ -133,7 +133,7 @@ const GameArea = ({ speed, isFullscreen }) => {
     // 逃窜模式检查
     if (now > escapeCountdownRef.current) {
       behaviorStateRef.current = 'escape_mode';
-      escapeCountdownRef.current = now + 20000 + Math.random() * 20000; // 下一次逃窜 20-40秒后
+      escapeCountdownRef.current = now + 30000 + Math.random() * 30000; // 下一次逃窜 30-60秒后（延长）
       
       // 高速爆发向屏幕边缘
       const rect = gameAreaRef.current?.getBoundingClientRect();

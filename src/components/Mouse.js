@@ -93,10 +93,29 @@ const Mouse = ({ x, y, size = 40, isEscaping, isHiding, behaviorState = 'explori
               y: y - size * 0.1,
             }}
             transition={{
-              x: { type: "spring", stiffness: isEscaping ? 500 : 150, damping: 25 },
-              y: { type: "spring", stiffness: isEscaping ? 500 : 150, damping: 25 },
+              x: { type: "spring", stiffness: isEscaping ? 200 : 80, damping: isEscaping ? 15 : 20, delay: isEscaping ? 0.1 : 0.05 },
+              y: { type: "spring", stiffness: isEscaping ? 200 : 80, damping: isEscaping ? 15 : 20, delay: isEscaping ? 0.1 : 0.05 },
             }}
-          />
+          >
+            {/* 瞳孔 - 拖拽更明显 */}
+            <motion.div
+              className="absolute rounded-full bg-black"
+              style={{
+                width: size * 0.08,
+                height: size * 0.08,
+                left: '30%',
+                top: '30%',
+              }}
+              animate={{
+                x: 0,
+                y: 0,
+              }}
+              transition={{
+                x: { type: "spring", stiffness: isEscaping ? 100 : 50, damping: isEscaping ? 10 : 15, delay: isEscaping ? 0.15 : 0.08 },
+                y: { type: "spring", stiffness: isEscaping ? 100 : 50, damping: isEscaping ? 10 : 15, delay: isEscaping ? 0.15 : 0.08 },
+              }}
+            />
+          </motion.div>
           <motion.div
             className="absolute rounded-full bg-white"
             style={{
@@ -108,10 +127,29 @@ const Mouse = ({ x, y, size = 40, isEscaping, isHiding, behaviorState = 'explori
               y: y - size * 0.1,
             }}
             transition={{
-              x: { type: "spring", stiffness: isEscaping ? 500 : 150, damping: 25 },
-              y: { type: "spring", stiffness: isEscaping ? 500 : 150, damping: 25 },
+              x: { type: "spring", stiffness: isEscaping ? 200 : 80, damping: isEscaping ? 15 : 20, delay: isEscaping ? 0.12 : 0.06 },
+              y: { type: "spring", stiffness: isEscaping ? 200 : 80, damping: isEscaping ? 15 : 20, delay: isEscaping ? 0.12 : 0.06 },
             }}
-          />
+          >
+            {/* 瞳孔 - 拖拽更明显 */}
+            <motion.div
+              className="absolute rounded-full bg-black"
+              style={{
+                width: size * 0.08,
+                height: size * 0.08,
+                left: '30%',
+                top: '30%',
+              }}
+              animate={{
+                x: 0,
+                y: 0,
+              }}
+              transition={{
+                x: { type: "spring", stiffness: isEscaping ? 100 : 50, damping: isEscaping ? 10 : 15, delay: isEscaping ? 0.18 : 0.09 },
+                y: { type: "spring", stiffness: isEscaping ? 100 : 50, damping: isEscaping ? 10 : 15, delay: isEscaping ? 0.18 : 0.09 },
+              }}
+            />
+          </motion.div>
         </>
       )}
     </>
