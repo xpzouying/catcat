@@ -87,7 +87,7 @@ const CaptureEffect = ({ captures }) => {
             }}
           >
             <span className="text-2xl font-bold text-yellow-600">
-              ✨ 抓到了! ✨
+              ✨ Gotcha! ✨
             </span>
           </motion.div>
         </motion.div>
