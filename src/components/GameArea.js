@@ -59,7 +59,7 @@ const GameArea = ({ speed, isFullscreen }) => {
       vx: Math.cos(finalAngle) * targetSpeed,
       vy: Math.sin(finalAngle) * targetSpeed
     };
-  }, [speed, getSpeedByBehavior]);
+  }, [getSpeedByBehavior]);
 
   const updateMovementPattern = useCallback(() => {
     const now = Date.now();
@@ -96,6 +96,13 @@ const GameArea = ({ speed, isFullscreen }) => {
           behaviorStateRef.current = 'stalking'; // 回到潜行状态
           velocityRef.current = getRandomVelocity(); // 新方向
         }
+        break;
+        
+      default:
+        // 默认重置为直行状态
+        movementPhaseRef.current = 'direct';
+        phaseStartTimeRef.current = now;
+        behaviorStateRef.current = 'stalking';
         break;
     }
     
