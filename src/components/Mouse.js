@@ -28,13 +28,13 @@ const Mouse = ({ x, y, size = 40, isEscaping, isHiding, behaviorState = 'explori
   const getMouseColor = () => {
     switch(behaviorState) {
       case 'hunting':
-        return '#FF6B6B'; // 红色 - 活跃状态
+        return '#FFD700'; // 金黄色 - 活跃状态
       case 'resting':
-        return '#4ECDC4'; // 青色 - 休息状态
+        return '#FFA500'; // 橙黄色 - 休息状态
       case 'hiding':
-        return '#45B7D1'; // 深蓝 - 隐藏状态
+        return '#FFFF00'; // 纯黄色 - 隐藏状态
       default:
-        return '#4A90E2'; // 默认蓝色
+        return '#FFD700'; // 默认金黄色
     }
   };
 

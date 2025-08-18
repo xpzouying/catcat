@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Mouse from './Mouse';
 import TouchFeedback from './TouchFeedback';
+import CaptureEffect from './CaptureEffect';
 
 const GameArea = ({ speed, isFullscreen }) => {
   const gameAreaRef = useRef(null);
@@ -11,11 +12,13 @@ const GameArea = ({ speed, isFullscreen }) => {
   const [isEscaping, setIsEscaping] = useState(false);
   const [isHiding, setIsHiding] = useState(false);
   const [touches, setTouches] = useState([]);
+  const [captures, setCaptures] = useState([]);
   const escapeTimeoutRef = useRef();
   const behaviorStateRef = useRef('exploring'); // exploring, hunting, resting, hiding
   const lastDirectionChangeRef = useRef(0);
   const pauseTimeRef = useRef(0);
   const touchIdRef = useRef(0);
+  const captureIdRef = useRef(0);
 
   const getRandomVelocity = useCallback(() => {
     const angle = Math.random() * Math.PI * 2;
@@ -24,16 +27,16 @@ const GameArea = ({ speed, isFullscreen }) => {
     // 根据行为状态调整速度
     switch(behaviorStateRef.current) {
       case 'exploring':
-        baseSpeed *= 0.8;
+        baseSpeed *= (0.6 + Math.random() * 0.6); // 0.6-1.2倍速，更不规律
         break;
       case 'hunting':
-        baseSpeed *= 1.3;
+        baseSpeed *= (1.2 + Math.random() * 0.8); // 1.2-2.0倍速，突然爆发
         break;
       case 'resting':
-        baseSpeed *= 0.3;
+        baseSpeed *= (0.1 + Math.random() * 0.4); // 0.1-0.5倍速，缓慢移动
         break;
       case 'hiding':
-        baseSpeed *= 0.1;
+        baseSpeed *= (0.05 + Math.random() * 0.15); // 0.05-0.2倍速，几乎静止
         break;
       default:
         break;
@@ -99,6 +102,21 @@ const GameArea = ({ speed, isFullscreen }) => {
     }, 600);
 
     if (isHit) {
+      // 添加捕获成功效果
+      const newCapture = {
+        id: captureIdRef.current++,
+        x: touchX,
+        y: touchY,
+        timestamp: Date.now()
+      };
+
+      setCaptures(prev => [...prev, newCapture]);
+
+      // 清除旧的捕获效果
+      setTimeout(() => {
+        setCaptures(prev => prev.filter(c => c.id !== newCapture.id));
+      }, 1200);
+
       const escapeAngle = Math.atan2(
         mousePositionRef.current.y - touchY,
         mousePositionRef.current.x - touchX
@@ -203,17 +221,20 @@ const GameArea = ({ speed, isFullscreen }) => {
 
       // 更自然的方向改变逻辑
       if (!isEscaping) {
-        // 根据行为状态调整方向改变频率
+        // 根据行为状态调整方向改变频率 - 更激进的变化
         let changeProb = 0.005;
         switch(behaviorStateRef.current) {
           case 'hunting':
-            changeProb = 0.02; // 狩猎时更频繁改变方向
+            changeProb = 0.04; // 狩猎时极频繁改变方向
             break;
           case 'exploring':
-            changeProb = 0.01;
+            changeProb = 0.02; // 探索时更频繁变化
             break;
           case 'hiding':
-            changeProb = 0.001; // 隐藏时几乎不改变方向
+            changeProb = 0.001;
+            break;
+          default:
+            changeProb = 0.01;
             break;
         }
 
@@ -221,11 +242,29 @@ const GameArea = ({ speed, isFullscreen }) => {
           velocityRef.current = getRandomVelocity();
         }
 
-        // 添加微小的随机扰动，模拟真实动物的不规律移动
-        if (Math.random() < 0.1) {
-          const perturbation = 0.2;
+        // 增加突然的急转弯概率
+        if (Math.random() < 0.015) {
+          const sharpTurnAngle = (Math.random() - 0.5) * Math.PI; // 大角度转弯
+          const currentSpeed = Math.sqrt(velocityRef.current.vx ** 2 + velocityRef.current.vy ** 2);
+          const currentAngle = Math.atan2(velocityRef.current.vy, velocityRef.current.vx);
+          const newAngle = currentAngle + sharpTurnAngle;
+          
+          velocityRef.current.vx = Math.cos(newAngle) * currentSpeed;
+          velocityRef.current.vy = Math.sin(newAngle) * currentSpeed;
+        }
+
+        // 增加微小的随机扰动频率和强度
+        if (Math.random() < 0.2) {
+          const perturbation = behaviorStateRef.current === 'hunting' ? 0.5 : 0.3;
           velocityRef.current.vx += (Math.random() - 0.5) * perturbation;
           velocityRef.current.vy += (Math.random() - 0.5) * perturbation;
+        }
+
+        // 添加短暂停顿后突然加速的行为
+        if (Math.random() < 0.008) {
+          const burstMultiplier = 1.5 + Math.random() * 1.5;
+          velocityRef.current.vx *= burstMultiplier;
+          velocityRef.current.vy *= burstMultiplier;
         }
       }
 
@@ -247,7 +286,7 @@ const GameArea = ({ speed, isFullscreen }) => {
   return (
     <div
       ref={gameAreaRef}
-      className="relative w-full h-full bg-gray-800 overflow-hidden cursor-pointer"
+      className="relative w-full h-full bg-gray-100 overflow-hidden cursor-pointer"
       onTouchStart={handleTouch}
       onTouchMove={handleTouch}
       onClick={handleClick}
@@ -256,12 +295,13 @@ const GameArea = ({ speed, isFullscreen }) => {
       <Mouse
         x={mousePosition.x}
         y={mousePosition.y}
-        size={45}
+        size={70}
         isEscaping={isEscaping}
         isHiding={isHiding}
         behaviorState={behaviorStateRef.current}
       />
       <TouchFeedback touches={touches} />
+      <CaptureEffect captures={captures} />
     </div>
   );
 };
