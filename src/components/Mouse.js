@@ -1,157 +1,152 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 
-const Mouse = ({ x, y, size = 40, isEscaping, isHiding, behaviorState = 'exploring' }) => {
+const Mouse = ({ x, y, size = 50, isEscaping, velocity = { vx: 0, vy: 0 } }) => {
   const [pulseIntensity, setPulseIntensity] = useState(1);
+  const prevPosition = useRef({ x: x, y: y });
   
-  // 根据行为状态设置视觉效果
+  // 简单的脉动效果
   useEffect(() => {
     const interval = setInterval(() => {
-      switch(behaviorState) {
-        case 'hunting':
-          setPulseIntensity(1.1 + Math.random() * 0.2);
-          break;
-        case 'resting':
-          setPulseIntensity(0.9 + Math.random() * 0.1);
-          break;
-        case 'hiding':
-          setPulseIntensity(0.7);
-          break;
-        default:
-          setPulseIntensity(1 + Math.random() * 0.1);
-      }
-    }, 500 + Math.random() * 1000);
+      setPulseIntensity(0.95 + Math.random() * 0.1); // 轻微脉动
+    }, 800 + Math.random() * 400);
 
     return () => clearInterval(interval);
-  }, [behaviorState]);
+  }, []);
 
-  const getMouseColor = () => {
-    // 统一使用明黄色 #FFD24A，与深色背景形成强对比
-    return '#FFD24A';
+  // 更新上一帧位置
+  useEffect(() => {
+    prevPosition.current = { x, y };
+  }, [x, y]);
+
+  // 计算眼睛朝向，基于移动方向
+  const getEyeDirection = () => {
+    const dx = velocity.vx;
+    const dy = velocity.vy;
+    const speed = Math.sqrt(dx * dx + dy * dy);
+    
+    // 如果移动速度很慢，眼睛居中
+    if (speed < 0.5) {
+      return { offsetX: 0, offsetY: 0 };
+    }
+    
+    // 根据移动方向偏移眼睛
+    const maxOffset = size * 0.03; // 减小偏移量
+    return {
+      offsetX: (dx / speed) * maxOffset,
+      offsetY: (dy / speed) * maxOffset
+    };
   };
+
+  const eyeDirection = getEyeDirection();
 
   return (
     <>
-      {/* 主体 */}
+      {/* 主体 - 回到简单设计 */}
       <motion.div
         className="absolute rounded-full"
         style={{
           width: size,
           height: size,
-          backgroundColor: getMouseColor(),
-          boxShadow: `0 0 ${isEscaping ? 20 : 15}px ${getMouseColor()}80`,
-          opacity: isHiding ? 0.3 : 1,
-          border: '2px solid #ffffff', // 白色描边增强边缘
+          backgroundColor: '#FFD24A',
+          boxShadow: '0 0 15px rgba(255, 210, 74, 0.6)',
+          border: '2px solid #ffffff',
         }}
         animate={{
           x: x - size/2,
           y: y - size/2,
-          scale: isEscaping ? 1.3 : pulseIntensity,
+          scale: isEscaping ? 1.2 : pulseIntensity,
         }}
         transition={{
-          x: { type: "spring", stiffness: isEscaping ? 500 : 150, damping: isEscaping ? 10 : 25 },
-          y: { type: "spring", stiffness: isEscaping ? 500 : 150, damping: isEscaping ? 10 : 25 },
-          scale: { type: "tween", duration: isEscaping ? 0.15 : 0.8, ease: "easeOut" },
-          opacity: { duration: 0.3 },
+          x: { type: "spring", stiffness: isEscaping ? 400 : 100, damping: isEscaping ? 15 : 20 },
+          y: { type: "spring", stiffness: isEscaping ? 400 : 100, damping: isEscaping ? 15 : 20 },
+          scale: { type: "spring", stiffness: 300, damping: 20 },
         }}
       />
       
-      {/* 尾迹效果 */}
-      {isEscaping && (
+      {/* 左眼睛 - 简化并跟随移动方向 */}
+      <motion.div
+        className="absolute rounded-full bg-white"
+        style={{
+          width: size * 0.25,
+          height: size * 0.25,
+        }}
+        animate={{
+          x: x - size * 0.2,
+          y: y - size * 0.15,
+        }}
+        transition={{
+          type: "spring",
+          stiffness: isEscaping ? 300 : 120,
+          damping: isEscaping ? 15 : 25,
+          delay: 0.02 // 轻微延迟产生拖拽效果
+        }}
+      >
+        {/* 左瞳孔 */}
         <motion.div
-          className="absolute rounded-full"
+          className="absolute rounded-full bg-black"
           style={{
-            width: size * 0.7,
-            height: size * 0.7,
-            backgroundColor: getMouseColor(),
-            opacity: 0.4,
+            width: size * 0.1,
+            height: size * 0.1,
+            left: '50%',
+            top: '50%',
+            marginLeft: -(size * 0.05),
+            marginTop: -(size * 0.05),
           }}
           animate={{
-            x: x - (size * 0.7)/2,
-            y: y - (size * 0.7)/2,
-            scale: [0.8, 1.2, 0.6],
+            x: eyeDirection.offsetX,
+            y: eyeDirection.offsetY,
           }}
           transition={{
-            x: { type: "spring", stiffness: 300, damping: 20, delay: 0.1 },
-            y: { type: "spring", stiffness: 300, damping: 20, delay: 0.1 },
-            scale: { duration: 0.4, times: [0, 0.5, 1] },
+            type: "spring",
+            stiffness: 150,
+            damping: 20,
+            delay: 0.05 // 瞳孔延迟更明显
           }}
         />
-      )}
+      </motion.div>
       
-      {/* 眼睛效果 */}
-      {!isHiding && (
-        <>
-          <motion.div
-            className="absolute rounded-full bg-white"
-            style={{
-              width: size * 0.2,
-              height: size * 0.2,
-            }}
-            animate={{
-              x: x - size * 0.15,
-              y: y - size * 0.1,
-            }}
-            transition={{
-              x: { type: "spring", stiffness: isEscaping ? 200 : 80, damping: isEscaping ? 15 : 20, delay: isEscaping ? 0.1 : 0.05 },
-              y: { type: "spring", stiffness: isEscaping ? 200 : 80, damping: isEscaping ? 15 : 20, delay: isEscaping ? 0.1 : 0.05 },
-            }}
-          >
-            {/* 瞳孔 - 拖拽更明显 */}
-            <motion.div
-              className="absolute rounded-full bg-black"
-              style={{
-                width: size * 0.08,
-                height: size * 0.08,
-                left: '30%',
-                top: '30%',
-              }}
-              animate={{
-                x: 0,
-                y: 0,
-              }}
-              transition={{
-                x: { type: "spring", stiffness: isEscaping ? 100 : 50, damping: isEscaping ? 10 : 15, delay: isEscaping ? 0.15 : 0.08 },
-                y: { type: "spring", stiffness: isEscaping ? 100 : 50, damping: isEscaping ? 10 : 15, delay: isEscaping ? 0.15 : 0.08 },
-              }}
-            />
-          </motion.div>
-          <motion.div
-            className="absolute rounded-full bg-white"
-            style={{
-              width: size * 0.2,
-              height: size * 0.2,
-            }}
-            animate={{
-              x: x + size * 0.05,
-              y: y - size * 0.1,
-            }}
-            transition={{
-              x: { type: "spring", stiffness: isEscaping ? 200 : 80, damping: isEscaping ? 15 : 20, delay: isEscaping ? 0.12 : 0.06 },
-              y: { type: "spring", stiffness: isEscaping ? 200 : 80, damping: isEscaping ? 15 : 20, delay: isEscaping ? 0.12 : 0.06 },
-            }}
-          >
-            {/* 瞳孔 - 拖拽更明显 */}
-            <motion.div
-              className="absolute rounded-full bg-black"
-              style={{
-                width: size * 0.08,
-                height: size * 0.08,
-                left: '30%',
-                top: '30%',
-              }}
-              animate={{
-                x: 0,
-                y: 0,
-              }}
-              transition={{
-                x: { type: "spring", stiffness: isEscaping ? 100 : 50, damping: isEscaping ? 10 : 15, delay: isEscaping ? 0.18 : 0.09 },
-                y: { type: "spring", stiffness: isEscaping ? 100 : 50, damping: isEscaping ? 10 : 15, delay: isEscaping ? 0.18 : 0.09 },
-              }}
-            />
-          </motion.div>
-        </>
-      )}
+      {/* 右眼睛 */}
+      <motion.div
+        className="absolute rounded-full bg-white"
+        style={{
+          width: size * 0.25,
+          height: size * 0.25,
+        }}
+        animate={{
+          x: x + size * 0.05,
+          y: y - size * 0.15,
+        }}
+        transition={{
+          type: "spring",
+          stiffness: isEscaping ? 300 : 120,
+          damping: isEscaping ? 15 : 25,
+          delay: 0.025 // 稍微不同的延迟
+        }}
+      >
+        {/* 右瞳孔 */}
+        <motion.div
+          className="absolute rounded-full bg-black"
+          style={{
+            width: size * 0.1,
+            height: size * 0.1,
+            left: '50%',
+            top: '50%',
+            marginLeft: -(size * 0.05),
+            marginTop: -(size * 0.05),
+          }}
+          animate={{
+            x: eyeDirection.offsetX,
+            y: eyeDirection.offsetY,
+          }}
+          transition={{
+            type: "spring",
+            stiffness: 150,
+            damping: 20,
+            delay: 0.055 // 右瞳孔延迟稍微不同
+          }}
+        />
+      </motion.div>
     </>
   );
 };
