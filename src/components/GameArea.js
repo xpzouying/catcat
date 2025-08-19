@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Mouse from './Mouse';
 import TouchFeedback from './TouchFeedback';
 import CaptureEffect from './CaptureEffect';
+import RainbowTrail from './RainbowTrail';
 
 const GameArea = ({ speed, isFullscreen }) => {
   const gameAreaRef = useRef(null);
@@ -199,6 +200,12 @@ const GameArea = ({ speed, isFullscreen }) => {
       onTouchMove={handleTouch}
       onClick={handleClick}
     >
+      {/* 彩虹尾巴要在老鼠之前渲染，确保层级正确 */}
+      <RainbowTrail 
+        mousePosition={mousePosition}
+        isEscaping={isEscaping}
+        speed={speed}
+      />
       <Mouse
         x={mousePosition.x}
         y={mousePosition.y}
