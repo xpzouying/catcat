@@ -1,48 +1,76 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { useSpring, animated } from 'react-spring';
 
 const Mouse = ({ x, y, size = 50, isEscaping, velocity = { vx: 0, vy: 0 } }) => {
   const [pulseIntensity, setPulseIntensity] = useState(1);
-  const prevPosition = useRef({ x: x, y: y });
   
   // 简单的脉动效果
   useEffect(() => {
     const interval = setInterval(() => {
-      setPulseIntensity(0.95 + Math.random() * 0.1); // 轻微脉动
+      setPulseIntensity(0.95 + Math.random() * 0.1);
     }, 800 + Math.random() * 400);
 
     return () => clearInterval(interval);
   }, []);
 
-  // 更新上一帧位置
-  useEffect(() => {
-    prevPosition.current = { x, y };
-  }, [x, y]);
-
-  // 计算眼睛朝向，基于移动方向
-  const getEyeDirection = () => {
-    const dx = velocity.vx;
-    const dy = velocity.vy;
-    const speed = Math.sqrt(dx * dx + dy * dy);
-    
-    // 如果移动速度很慢，眼睛居中
-    if (speed < 0.5) {
-      return { offsetX: 0, offsetY: 0 };
+  // Googly eyes physics - 使用react-spring创建物理弹簧效果
+  const leftEyeSpring = useSpring({
+    from: { x: 0, y: 0 },
+    to: {
+      x: velocity.vx * 2, // 放大速度影响
+      y: velocity.vy * 2
+    },
+    config: {
+      mass: 1,
+      tension: 120,
+      friction: 14,
     }
-    
-    // 根据移动方向偏移眼睛
-    const maxOffset = size * 0.03; // 减小偏移量
-    return {
-      offsetX: (dx / speed) * maxOffset,
-      offsetY: (dy / speed) * maxOffset
-    };
-  };
+  });
 
-  const eyeDirection = getEyeDirection();
+  const rightEyeSpring = useSpring({
+    from: { x: 0, y: 0 },
+    to: {
+      x: velocity.vx * 2,
+      y: velocity.vy * 2
+    },
+    config: {
+      mass: 1.2, // 右眼稍重，产生不同步效果
+      tension: 100,
+      friction: 12,
+    }
+  });
+
+  // 瞳孔的物理模拟 - 更强的惯性
+  const leftPupilSpring = useSpring({
+    from: { x: 0, y: 0 },
+    to: {
+      x: velocity.vx * 5, // 瞳孔移动更夸张
+      y: velocity.vy * 5
+    },
+    config: {
+      mass: 0.5,
+      tension: 60,
+      friction: 8,
+    }
+  });
+
+  const rightPupilSpring = useSpring({
+    from: { x: 0, y: 0 },
+    to: {
+      x: velocity.vx * 5,
+      y: velocity.vy * 5
+    },
+    config: {
+      mass: 0.6,
+      tension: 50,
+      friction: 7,
+    }
+  });
 
   return (
     <>
-      {/* 主体 - 回到简单设计 */}
+      {/* 主体 */}
       <motion.div
         className="absolute rounded-full"
         style={{
@@ -51,6 +79,7 @@ const Mouse = ({ x, y, size = 50, isEscaping, velocity = { vx: 0, vy: 0 } }) => 
           backgroundColor: '#FFD24A',
           boxShadow: '0 0 15px rgba(255, 210, 74, 0.6)',
           border: '2px solid #ffffff',
+          zIndex: 10,
         }}
         animate={{
           x: x - size/2,
@@ -64,89 +93,145 @@ const Mouse = ({ x, y, size = 50, isEscaping, velocity = { vx: 0, vy: 0 } }) => 
         }}
       />
       
-      {/* 左眼睛 - 简化并跟随移动方向 */}
-      <motion.div
+      {/* 左眼睛 - 使用react-spring */}
+      <animated.div
         className="absolute rounded-full bg-white"
         style={{
-          width: size * 0.25,
-          height: size * 0.25,
-        }}
-        animate={{
-          x: x - size * 0.2,
-          y: y - size * 0.15,
-        }}
-        transition={{
-          type: "spring",
-          stiffness: isEscaping ? 300 : 120,
-          damping: isEscaping ? 15 : 25,
-          delay: 0.02 // 轻微延迟产生拖拽效果
+          width: size * 0.3,
+          height: size * 0.3,
+          left: x - size * 0.22,
+          top: y - size * 0.18,
+          transform: leftEyeSpring.x.to(
+            (xVal) => `translate(${xVal}px, ${leftEyeSpring.y.get()}px)`
+          ),
+          zIndex: 11,
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
         }}
       >
-        {/* 左瞳孔 */}
-        <motion.div
+        {/* 左瞳孔 - 使用react-spring */}
+        <animated.div
           className="absolute rounded-full bg-black"
           style={{
-            width: size * 0.1,
-            height: size * 0.1,
+            width: size * 0.12,
+            height: size * 0.12,
             left: '50%',
             top: '50%',
-            marginLeft: -(size * 0.05),
-            marginTop: -(size * 0.05),
+            marginLeft: -(size * 0.06),
+            marginTop: -(size * 0.06),
+            transform: leftPupilSpring.x.to(
+              (xVal) => {
+                // 限制瞳孔在眼白内移动
+                const maxOffset = size * 0.08;
+                const clampedX = Math.max(-maxOffset, Math.min(maxOffset, xVal));
+                const clampedY = Math.max(-maxOffset, Math.min(maxOffset, leftPupilSpring.y.get()));
+                return `translate(${clampedX}px, ${clampedY}px)`;
+              }
+            ),
           }}
-          animate={{
-            x: eyeDirection.offsetX,
-            y: eyeDirection.offsetY,
-          }}
-          transition={{
-            type: "spring",
-            stiffness: 150,
-            damping: 20,
-            delay: 0.05 // 瞳孔延迟更明显
-          }}
-        />
-      </motion.div>
+        >
+          {/* 瞳孔高光 */}
+          <div 
+            className="absolute bg-white rounded-full"
+            style={{
+              width: size * 0.03,
+              height: size * 0.03,
+              left: '25%',
+              top: '25%',
+            }}
+          />
+        </animated.div>
+      </animated.div>
       
-      {/* 右眼睛 */}
-      <motion.div
+      {/* 右眼睛 - 使用react-spring */}
+      <animated.div
         className="absolute rounded-full bg-white"
         style={{
-          width: size * 0.25,
-          height: size * 0.25,
-        }}
-        animate={{
-          x: x + size * 0.05,
-          y: y - size * 0.15,
-        }}
-        transition={{
-          type: "spring",
-          stiffness: isEscaping ? 300 : 120,
-          damping: isEscaping ? 15 : 25,
-          delay: 0.025 // 稍微不同的延迟
+          width: size * 0.3,
+          height: size * 0.3,
+          left: x + size * 0.02,
+          top: y - size * 0.18,
+          transform: rightEyeSpring.x.to(
+            (xVal) => `translate(${xVal}px, ${rightEyeSpring.y.get()}px)`
+          ),
+          zIndex: 11,
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
         }}
       >
-        {/* 右瞳孔 */}
-        <motion.div
+        {/* 右瞳孔 - 使用react-spring */}
+        <animated.div
           className="absolute rounded-full bg-black"
           style={{
-            width: size * 0.1,
-            height: size * 0.1,
+            width: size * 0.12,
+            height: size * 0.12,
             left: '50%',
             top: '50%',
-            marginLeft: -(size * 0.05),
-            marginTop: -(size * 0.05),
+            marginLeft: -(size * 0.06),
+            marginTop: -(size * 0.06),
+            transform: rightPupilSpring.x.to(
+              (xVal) => {
+                // 限制瞳孔在眼白内移动
+                const maxOffset = size * 0.08;
+                const clampedX = Math.max(-maxOffset, Math.min(maxOffset, xVal));
+                const clampedY = Math.max(-maxOffset, Math.min(maxOffset, rightPupilSpring.y.get()));
+                return `translate(${clampedX}px, ${clampedY}px)`;
+              }
+            ),
           }}
-          animate={{
-            x: eyeDirection.offsetX,
-            y: eyeDirection.offsetY,
-          }}
-          transition={{
-            type: "spring",
-            stiffness: 150,
-            damping: 20,
-            delay: 0.055 // 右瞳孔延迟稍微不同
-          }}
-        />
-      </motion.div>
+        >
+          {/* 瞳孔高光 */}
+          <div 
+            className="absolute bg-white rounded-full"
+            style={{
+              width: size * 0.03,
+              height: size * 0.03,
+              left: '25%',
+              top: '25%',
+            }}
+          />
+        </animated.div>
+      </animated.div>
+
+      {/* 添加眉毛增加表情 */}
+      {isEscaping && (
+        <>
+          <motion.div
+            className="absolute bg-gray-800"
+            style={{
+              width: size * 0.25,
+              height: size * 0.04,
+              left: x - size * 0.25,
+              top: y - size * 0.35,
+              borderRadius: '2px',
+              transform: 'rotate(-15deg)',
+            }}
+            animate={{
+              y: [0, -2, 0],
+            }}
+            transition={{
+              duration: 0.3,
+              repeat: Infinity,
+            }}
+          />
+          <motion.div
+            className="absolute bg-gray-800"
+            style={{
+              width: size * 0.25,
+              height: size * 0.04,
+              left: x + size * 0.05,
+              top: y - size * 0.35,
+              borderRadius: '2px',
+              transform: 'rotate(15deg)',
+            }}
+            animate={{
+              y: [0, -2, 0],
+            }}
+            transition={{
+              duration: 0.3,
+              repeat: Infinity,
+            }}
+          />
+        </>
+      )}
     </>
   );
 };
